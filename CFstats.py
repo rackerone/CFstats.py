@@ -19,28 +19,35 @@
 
 import subprocess
 import sys
+import datetime
 import os
-import pyrax
 import time
 import threading
 import random
 import json
 import collections
 from prettytable import PrettyTable
+try:
+    import pyrax
+except ImportError as e:
+    print '%s\n' % e
+    print "Please install pyrax and try again!"
+    sys.exit(1)
 
 #===================================================================================================================
 # EDIT THE GLOBAL VARIABLES BELOW AS NECESSARY FOR EACH TEST
 #===================================================================================================================
 #Set the time threshold.  Any API call taking longer than MAX_TIME will be considered a BAD TIME.  Floating point is acceptable
-MAX_TIME = 3.0
+MAX_TIME = 0.3
 
-#Set MAX_REPS to limit the number of tests to the assigned value.  If set to '-1' it will go forever until manually killed
-#or stopped.  The default value is 100 (100 seconds)
-MAX_REPS = 15
+#Set MAX_REPS to limit the number of tests to the assigned value.
+MAX_REPS = 100
 
+#Set Rackspace credentials
+APIKEY = 'YOURAPIKEY'
+USERNAME = 'YOURUSERNAME'
 
-APIKEY = ''
-USERNAME = ''
+#Set the target region that contains your cloud file(s)
 REGION = 'DFW'
 
 #Set SNET to True if you are running this from a cloud server in the same region as your cloud files. [default = False]
@@ -48,21 +55,17 @@ SNET = False
 
 #Set RANDOM to True if you want 10 randomly selected objects for testing.  If RANDOM is set to 'True' then you
 #can safely disregard the CONTAINER and FILE variables.
-#.
-#RANDOM = True
 RANDOM = False
 
 #If RANDOM is set to 'False', you **MUST** set the FILE and CONTAINER variables.  If RANDOM is 'True', you can disregard
-CONTAINER = ''
-FILE = ''
+CONTAINER = 'YOURCONTAINER'
+FILE = 'YOUROBJECT'
 
 #=================================================########==================================================================
 #=================================================########==================================================================
 #DO NOT EDIT BELOW THIS LINE     DO NOT EDIT BELOW THIS LINE     DO NOT EDIT BELOW THIS LINE     DO NOT EDIT BELOW THIS LINE
 #=================================================########==================================================================
 #=================================================########==================================================================
-
-#---------------Begin program loading meter
 #Initialize the STARTUP variable to the value of TRUE.  Set to false to stop the 'program_loading()' meter below.
 STARTUP = True
 #Print progress message to screen during app load.  I have to create a class here so I can utilize threading.
@@ -84,59 +87,63 @@ class program_loading(threading.Thread):
                 STARTUP = False
                 print '\rABORTING!!!'
 
-
-#Create an instance of the 'program_loading' meter and start it
-# try:
-#     pl = program_loading()
-#     pl.start()
-# except KeyboardInterrupt:
-#     STARTUP = False
-#     pl.exit()
-#     sys.exit()
+#Create an instance of the 'program_loading' meter and start it.  This will be killed when testing begins.
+#We are wrapping the entire program intialization with a try statement so that if anything crashes during 
+#initialization it won't leave the 'loading meter' running with no way to break out.
 try:
+    #Starting program load meter
     pl = program_loading()
     pl.start()
-
-    #---------------End program loading meter
-
     #Set up variables that will STOP or KILL the progress_bar_loading() meter that we will create later
     KILL = False
     STOP = False
     #We will use this to parse all available cloud files endpoints for this particular user
     IDENTITY_ENDPOINT = 'https://identity.api.rackspacecloud.com/v2.0/tokens'
     # #Initialize the COUNTER variable and set to 0.
-    COUNTER = 0
+    COUNTER = 1
     #Initialize the ENDPOINT variable.  This will be assigned a value inside the main() function
     ENDPOINT = ''
+    #Make that service net defaults to False if the value of SNET isn't specifically set to True
+    if SNET != True:
+        SNET = False
 
     #===================================================================================================================
     #ESTABLISH DATA BANKS TO HOLD INFOMRATION DURING SCRIPT LIFETIME
     #===================================================================================================================
     #Create list to hold our dictionaries.  This includes transaction ID, container, object, HTTP error code, and time.
     BAD_TRANSACTIONS = []
-
     #Errors returned by the python 'subprocess' module
     SUBPROCESS_ERRORS = []
-
     #Create a 'collections' object that we can use to keep track of HTTP error codes easily.
     HTTP_CODE_COLLECTION = []
-
     #Initialize a dict containing a random container from account as the key and a random object in that container as the value
     MY_OBJECT = {}
-
     #MY_ROW will container a list of table rows used for pretty table
     MY_ROW = []
-
-    #Set up 'my_row_list' to keep running tally of values
-    my_row_list =[]
+    
+    #Set up 'MY_ROW_LIST' to keep running tally of values for bad transactions.
+    #TODO - NOTE this is not used at this time
+    MY_ROW_LIST =[]
 
     #===================================================================================================================
     #SET UP PYRAX AND AUTH TO GET CURRENT TOKEN
     #===================================================================================================================
-    pyrax.set_setting("identity_type", "rackspace")
-    pyrax.set_default_region("DFW")
-    pyrax.set_credentials(USERNAME, APIKEY)
-    TOKEN = pyrax.identity.token
+    ticks = 0
+    max_ticks = 3
+    try:
+        pyrax.set_setting("identity_type", "rackspace")
+        pyrax.set_default_region("DFW")
+        pyrax.set_credentials(USERNAME, APIKEY)
+        TOKEN = pyrax.identity.token
+    except Exception as e:
+        if ticks == max_ticks:
+            print "\r\n\r%s\n" % e
+            print "\rEXITING DUE TO ERROR DURING PYRAX AUTHENTICATION SETUP!"
+            sys.exit(1)
+        print "\rERROR!\n\r%s" % e
+        print "\rSleeping 1 second and retrying..."
+        time.sleep(1.0)
+        ticks += 1
 
     #===================================================================================================================
     #SET UP CLASSES AND FUNCTIONS
@@ -146,7 +153,6 @@ try:
         def run(self):
                 global STOP
                 global KILL
-                #print '\rLoading....  ',
                 sys.stdout.flush()
                 try:
                     i = 0
@@ -172,10 +178,14 @@ try:
                 finally:
                     STOP = True
 
+    def timestamp():
+        """Create a timestamp in appropriate format"""
+        ts = time.time()
+        formatted_time = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+        return formatted_time
 
     def get_endpoint(region=REGION, apikey=APIKEY, username=USERNAME, identity=IDENTITY_ENDPOINT, snet=SNET):
         """Parse services for cloud files URL.  Specifically, return the endpoint for the target 'region'"""
-
         if not (region and apikey and username and identity):
             raise AttributeError
         command = """curl -s %s -XPOST -d '{"auth":{"RAX-KSKEY:apiKeyCredentials" {"username":"%s", "apiKey":"%s"}}}' -H 'Content-Type: application/json'""" % (identity,username,apikey)
@@ -199,8 +209,6 @@ try:
             for url in cfcatalog:
                 endpoints.update({url['region']:url['publicURL']})
         return endpoints[region]
-
-
 
     def random_object(region=REGION):
         """This function will return a single key:value pair representing a random container for the key and a random object
@@ -248,19 +256,12 @@ try:
             rand.append({random_container:rand_object})
             print "this is rand ", rand
             print 'type of rand', type(rand)
-            yield rand
-            return
-            #yield my_random_cont_obj
-            # working_set = {}
-            # for key,value in MY_OBJECT.iteritems():
-            #     working_set.update({key:value})
-            # return working_set
+            return rand
+            
 
-    #TODO test service net and/or regular
     def timed_curl_head(token=TOKEN, endpoint=ENDPOINT, container=CONTAINER, file=FILE, use_snet=SNET, region=REGION):
-        # pb = progress_bar_loading()
-        # pb.start()
-
+        """Curl an object and return header.  This call will be timed and if the call exceeds the MAX_TIME value
+        it will log the transaction.  We consider anything taking longer than the MAX_TIME to be a BAD_TRANSACTION"""
         global COUNTER
         global BAD_TRANSACTIONS
         global SUBPROCESS_ERRORS
@@ -279,7 +280,7 @@ try:
         try:
             #print "\rAttempting command\n%s" % command
             output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)
-            print "\rAPI call [%s] sent..." % (COUNTER + 1)
+            print "\rAPI call [%s] sent..." % COUNTER
         except subprocess.CalledProcessError as e:
             print '\r', e
             SUBPROCESS_ERRORS.append(e)
@@ -294,10 +295,9 @@ try:
 
         if not success:
             print "\rHTTP Error %s returned by curl!" % response_code
-            #return response_head.strip()
-        #return cleaned_output
         trans = ""
         time = ""
+        tstamp = timestamp()
         for line in cleaned_output:
             if line.startswith('X-Trans-Id'):
                 trans = line.strip('\r').split(': ')[1]
@@ -307,17 +307,9 @@ try:
         if time >= MAX_TIME:
             msg = "\rBAD TRANSACTION ID: %s\tHTTP RESPONSE CODE: %s\t\tTIME: %s" % (trans,response_code,time)
             print msg
-            BAD_TRANSACTIONS.append({'Container':container, 'Object Name':file, 'Transaction ID':trans, 'Response Code':response_code, 'Time':time})
-            # BAD_TRANSIT_IDS.append(trans)
-            # TIME_LIST.append(time)
-            #print BAD_TRANSACTIONS
+            BAD_TRANSACTIONS.append({'Container':container, 'Time Stamp':tstamp, 'Object Name':file, 'Transaction ID':trans, 'Response Code':response_code, 'Time':time, 'Number':COUNTER})
         else:
             print "Good Transaction!"
-        # yield BAD_TRANSACTIONS
-
-        # if (BAD_TRANSIT_IDS and TIME_LIST):
-        #     print TIME_LIST
-
 
     #curl -o 100MBTESTDOWNLOAD -H"X-Auth-Token: fcabf04da6c045c399d296fc70785617" https://storage101.dfw1.clouddrive.com/v1/MossoCloudFS_adabd673-1859-48ba-8f91-951ff2331300/testcontainer/100MB.testfile
     def timed_curl_download(token=APIKEY, endpoint=ENDPOINT, container=CONTAINER, file=FILE, use_snet=SNET, region=REGION):
@@ -341,6 +333,33 @@ try:
         print cleaned_output
         trans = ''
         time = ''
+
+    def make_table(bad_transactions):
+        """Feed this function the BAD_TRANSACTIONS dictionary and it will create a PrettyTable with it."""
+        #Import and Initialize the global variable MY_ROW_LIST.  Used by Counter() later
+        global MY_ROW_LIST
+        #Initialize the table and set the headers using the keys in this 
+        bt_table = PrettyTable(bad_transactions[0].keys())
+        #Left align the 'container' column
+        bt_table.align['Container'] = 'l'
+        #Pad each cell with 1 space in every direction
+        bt_table.padding_width = 1
+        #Populate the table with values from bad trancation dictionary
+        for i in xrange(len(bad_transactions)):
+            MY_ROW = []
+            for key,value in bad_transactions[i].iteritems():
+                MY_ROW.append(value)
+                MY_ROW_LIST.append(value)
+            bt_table.add_row(MY_ROW)
+        try:
+            os.system('cls' if os.name=='nt' else 'clear')
+        except Exception as e:
+            #Simply passing if we get an error here because it is of no consequence.  We will print a couple
+            # of newlines instead
+            print "\n\n"
+        mytable = bt_table.get_string(sortby='Number',reversesort=False)
+        print "============================== SUMMARY TABLE =============================="
+        return mytable
 
     #===================================================================================================================
     # MAIN()
@@ -366,10 +385,6 @@ try:
         global RANDOM
         #Import and initialize COUNTER to control the number of loops.  COUNTER value is set to 0
         global COUNTER
-        #global MY_ROW
-
-        # #Here wa will create an instance of the rand_obj_dict just so we can access the keys from multipl locations
-        # rand_obj_keys = rand_obj_dict.iteritems():
 
         #Begin exicuting commands in repitition
         try:
@@ -383,7 +398,6 @@ try:
                     CONTAINER = rand_obj_dict.keys()[0]
                     FILE = rand_obj_dict.values()[0]
                     print "%s:%s", (CONTAINER,FILE)
-                    print "just printed container and file"
                     timed_curl_head(TOKEN, ENDPOINT, CONTAINER, FILE)
                     COUNTER += 1
             else:
@@ -392,63 +406,38 @@ try:
                     COUNTER += 1
                 STOP = True
                 print "\r"
-                return
         except Exception:
-            #print '\r%s\n\n' % e
             KILL = True
-        finally:
             STOP = True
 except KeyboardInterrupt:
+    #Killing progress meters
     STARTUP = False
+    KILL = True
+    STOP = True
     print '\r'
     sys.exit()
+
 #===================================================================================================================
 #EXECUTION LOGIC
 #===================================================================================================================
 if __name__ == "__main__":
     try:
-        #set STARTUP to False to stop the 'program_loading' progress meter
+        #set STARTUP to False to stop the 'program_loading' progress meter.  This just runs during app initialization
         STARTUP = False
-        #Run the main() function
-        #global BAD_TRANSACTIONS
+        #Running main()
         main()
-        #Set STOP to True to cancel the 'progress_bar_loading' meter
+        #Set STOP to True to cancel the 'progress_bar_loading' meter.  This one runs during curl calls.
         STOP = True
         #-------------->Set up our summary tables------------------------>
         if len(BAD_TRANSACTIONS) > 0:
-            #Initialize a table and set the headers
-            Bad_Trans_Table = PrettyTable(BAD_TRANSACTIONS[0].keys())
-            #Left align the container column
-            Bad_Trans_Table.align['Container'] = 'l'
-            #Pad each cell with 1 space in every direction
-            Bad_Trans_Table.padding_width = 1
-            #Populate the table
-            for i in xrange(len(BAD_TRANSACTIONS)):
-                MY_ROW = []
-                for key,value in BAD_TRANSACTIONS[i].iteritems():
-                    MY_ROW.append(value)
-                Bad_Trans_Table.add_row(MY_ROW)
+            bad_trans_table = make_table(BAD_TRANSACTIONS)
+            print bad_trans_table
 
-            try:
-                os.system('cls' if os.name=='nt' else 'clear')
-            except Exception as e:
-                print "\n\n"
-
-            print "--==* SUMMARY TABLE *==--"
-            print Bad_Trans_Table.get_string(sortby='Time',reversesort=True)
-
-            for i in xrange(len(BAD_TRANSACTIONS)):
-                MY_ROW = []
-                for key,value in BAD_TRANSACTIONS[i].iteritems():
-                    MY_ROW.append(value)
-                    my_row_list.append(value)
-            #print "MY_ROW; %s" % MY_ROW
-            #print MY_ROW
             print "\n"
             #print "attempting collection data..."
             Collection_data = collections.Counter(HTTP_CODE_COLLECTION)
 
-            # Collection_data = collections.Counter(my_row_list)
+            # Collection_data = collections.Counter(MY_ROW_LIST)
             # # for i in xrange(len(BAD_TRANSACTIONS)):
             # #     for key,value in BAD_TRANSACTIONS[i].iteritems():
             # #         Collection_data.append(value)
@@ -463,7 +452,8 @@ if __name__ == "__main__":
             print ""
             print ""
             percentage = (int(len(BAD_TRANSACTIONS) * 100) / MAX_REPS)
-            print "Percentage of bad API calls that exceed MAX_TIME: %s" % percentage + '%'
+            print "Number of calls exceeding MAX_TIME %d" % int(len(BAD_TRANSACTIONS))
+            print "Percentage of calls that exceed MAX_TIME: %.2f" % percentage + '%'
         else:
             print '\n\n'
             print "All transactions successlly completed faster than the MAX_TIME setting"
@@ -472,6 +462,11 @@ if __name__ == "__main__":
             """TODO from here i need to create a pretty table using the collection data for response codes.  it works now 
             but just need to formulate the table headers and populate table.  I would like percentages added to reponse codes as well 
             also need to add 'total api calls', 'total errors', and 'percentage failure'
+            In [14]: print x
+            Counter({'200': 15})
+
+            In [15]: x[x.keys()[0]]
+            Out[15]: 15
             """
 
 

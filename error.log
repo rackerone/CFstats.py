@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "cftest.py", line 414, in <module>
+    main()
+  File "cftest.854929.py", line 361, in main
+    ENDPOINT = get_endpoint()
+  File "cftest.py", line 197, in get_endpoint
+    endpoints.update({url['region']:url['internalURL']})
+KeyError: 'internalURL'
