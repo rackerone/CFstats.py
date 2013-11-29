@@ -440,11 +440,15 @@ if __name__ == "__main__":
             Collection_data = dict(collections.Counter(HTTP_CODE_COLLECTION))
             print "____HTTP Response Codes____"
             for key,value in Collection_data.iteritems():
-                print "%s's : %s response(s)" % (key,value)
+                resp = 'responses'
+                if value == '1':
+                    resp = 'response'
+                print "%s's : %s %s" % (key,value,resp)
             print "\n"
+            print "Total number of API calls: %d" % (COUNTER - 1)
+            print "Number of API calls exceeding MAX_TIME: %d" % int(len(BAD_TRANSACTIONS))
             percentage = (int(len(BAD_TRANSACTIONS) * 100) / MAX_REPS)
-            print "Number of calls exceeding MAX_TIME %d" % int(len(BAD_TRANSACTIONS))
-            print "Percentage of calls that exceed MAX_TIME: %.2f" % percentage + '%'
+            print "Percentage of API calls that exceed MAX_TIME: %.2f" % percentage + '%'
             print "Number of errors returned by cURL: %d" % int(len(SUBPROCESS_ERRORS))
             if SUBPROCESS_ERRORS:
                 print "CURL ERRORS:"
@@ -460,11 +464,6 @@ if __name__ == "__main__":
             """TODO from here i need to create a pretty table using the collection data for response codes.  it works now 
             but just need to formulate the table headers and populate table.  I would like percentages added to reponse codes as well 
             also need to add 'total api calls', 'total errors', and 'percentage failure'
-            In [14]: print x
-            Counter({'200': 15})
-
-            In [15]: x[x.keys()[0]]
-            Out[15]: 15
 
             ERROR 
             API call [27] sent...
