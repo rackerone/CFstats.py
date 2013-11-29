@@ -216,25 +216,19 @@ try:
         per iteration"""
         global MY_OBJECT
         MY_OBJECT = {}
-
         #Create connection to cloud files
         cfiles = pyrax.connect_to_cloudfiles(region)
-
         #Get a list of container Objects
         container_objs = cfiles.get_all_containers()
-
         #Initialize a list of containers.  It will hold only containers with 1 or more objects in it.  We will be unable to test
         #a container if it is empty.
         my_containers = []
-
         #Populate list 'my_containers' with containers that have an object count of more than 0
         for cont in container_objs:
             if int(cont.object_count) > 0:
                 my_containers.append(cont.name)
-
         #Calculate the number of containers available for testing (containers with one or more object)
         num_containers = len(my_containers)
-
         #If no containers in REGION then print message and exit
         if num_containers == 0:
             print "\rOops!  There are no containers in the '%s' region.  Please choose a different region and try again" % REGION
@@ -247,17 +241,9 @@ try:
             obj_names = cfiles.get_container_object_names(random_container)
             rand_object = random.sample(obj_names, 1)[0]
             print "\r----->Found random object [%s]" % rand_object
-            # my_container = []
-            # my_containers.append({random_container:rand_object})
-            # MY_OBJECT = my_containers[0]
-            # print 'my_containers', my_containers
-            # print 'MY_OBJECT',MY_OBJECT
             rand = []
             rand.append({random_container:rand_object})
-            print "this is rand ", rand
-            print 'type of rand', type(rand)
-            return rand
-            
+            return rand[0]
 
     def timed_curl_head(token=TOKEN, endpoint=ENDPOINT, container=CONTAINER, file=FILE, use_snet=SNET, region=REGION):
         """Curl an object and return header.  This call will be timed and if the call exceeds the MAX_TIME value
@@ -268,20 +254,22 @@ try:
         global HTTP_CODE_COLLECTION
         if not (token and endpoint and container and file):
             raise AttributeError
-
         formatter = {
                 'token': token,
                 'endpoint': endpoint,
                 'container': container,
                 'file': file
                 }
-
         command = 'time -p curl -s -I -H "X-Auth-Token: {token}" {endpoint}/{container}/{file}'.format(**formatter)
         try:
             #print "\rAttempting command\n%s" % command
             output = subprocess.check_output(command, stderr=subprocess.STDOUT, shell=True)
             print "\rAPI call [%s] sent..." % COUNTER
         except subprocess.CalledProcessError as e:
+            #Example: 
+            #Command 'time -p curl -s -I -H "X-Auth-Token: 4dd0a00b632840129ed47daa2644f718" 
+            #https://storage101.dfw1.clouddrive.com/v1/MossoCloudFS_adabd673-1859-48ba-8f91-951ff2331300/Hosted - DO NOT DELETE/sshpass-1.05.tar.gz' 
+            #returned non-zero exit status 2
             print '\r', e
             SUBPROCESS_ERRORS.append(e)
             return None
@@ -311,7 +299,7 @@ try:
                     'Transaction ID':trans,
                     'Response Code':response_code,
                     'Time':time,
-                    'Number':(str(COUNTER) + '/100')
+                    'Number':COUNTER
                     })
         else:
             print "Good Transaction!"
@@ -363,6 +351,7 @@ try:
             # of newlines instead
             print "\n\n"
         table = table.get_string(sortby='Number',reversesort=False)
+        print "\n\n"
         print "============================== SUMMARY TABLE =============================="
         return table
 
@@ -394,13 +383,10 @@ try:
             if RANDOM:
                 while COUNTER <= MAX_REPS:
                     #for key,value in rand_obj_dict.iteritems():
-                    print 'bad trandsaction', BAD_TRANSACTIONS
-                    print '\rCOUNTER    ',COUNTER
-                    print 'MAX',MAX_REPS
                     rand_obj_dict = random_object()
                     CONTAINER = rand_obj_dict.keys()[0]
                     FILE = rand_obj_dict.values()[0]
-                    print "%s:%s", (CONTAINER,FILE)
+                    #print "\r%s:%s" % (CONTAINER,FILE)
                     timed_curl_head(TOKEN, ENDPOINT, CONTAINER, FILE)
                     COUNTER += 1
             else:
@@ -450,6 +436,7 @@ if __name__ == "__main__":
             percentage = (int(len(BAD_TRANSACTIONS) * 100) / MAX_REPS)
             print "Percentage of API calls that exceed MAX_TIME: %.2f" % percentage + '%'
             print "Number of errors returned by cURL: %d" % int(len(SUBPROCESS_ERRORS))
+            print '\n'
             if SUBPROCESS_ERRORS:
                 print "CURL ERRORS:"
                 for error in SUBPROCESS_ERRORS:
