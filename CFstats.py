@@ -289,10 +289,8 @@ try:
         response_head = cleaned_output[0].strip().split(' ')
         response_code = response_head[1]
         success = response_code.startswith('2')
-
         #Compile list of all HTTP response codes
         HTTP_CODE_COLLECTION.append(response_code)
-
         if not success:
             print "\rHTTP Error %s returned by curl!" % response_code
         trans = ""
@@ -303,11 +301,18 @@ try:
                 trans = line.strip('\r').split(': ')[1]
             elif line.startswith('real'):
                 time = float(line.strip('\r').split(' ')[1])
-
         if time >= MAX_TIME:
             msg = "\rBAD TRANSACTION ID: %s\tHTTP RESPONSE CODE: %s\t\tTIME: %s" % (trans,response_code,time)
             print msg
-            BAD_TRANSACTIONS.append({'Container':container, 'Time Stamp':tstamp, 'Object Name':file, 'Transaction ID':trans, 'Response Code':response_code, 'Time':time, 'Number':COUNTER})
+            BAD_TRANSACTIONS.append({
+                    'Container':container,
+                    'Time Stamp':tstamp,
+                    'Object Name':file,
+                    'Transaction ID':trans,
+                    'Response Code':response_code,
+                    'Time':time,
+                    'Number':(str(COUNTER) + '/100')
+                    })
         else:
             print "Good Transaction!"
 
@@ -334,32 +339,32 @@ try:
         trans = ''
         time = ''
 
-    def make_table(bad_transactions):
-        """Feed this function the BAD_TRANSACTIONS dictionary and it will create a PrettyTable with it."""
+    def make_table(list_of_dicts):
+        """Feed this function a list (of dictionaries) and it will create a PrettyTable with it."""
         #Import and Initialize the global variable MY_ROW_LIST.  Used by Counter() later
         global MY_ROW_LIST
         #Initialize the table and set the headers using the keys in this 
-        bt_table = PrettyTable(bad_transactions[0].keys())
+        table = PrettyTable(list_of_dicts[0].keys())
         #Left align the 'container' column
-        bt_table.align['Container'] = 'l'
+        table.align['Container'] = 'l'
         #Pad each cell with 1 space in every direction
-        bt_table.padding_width = 1
+        table.padding_width = 1
         #Populate the table with values from bad trancation dictionary
-        for i in xrange(len(bad_transactions)):
+        for i in xrange(len(list_of_dicts)):
             MY_ROW = []
-            for key,value in bad_transactions[i].iteritems():
+            for key,value in list_of_dicts[i].iteritems():
                 MY_ROW.append(value)
                 MY_ROW_LIST.append(value)
-            bt_table.add_row(MY_ROW)
+            table.add_row(MY_ROW)
         try:
             os.system('cls' if os.name=='nt' else 'clear')
         except Exception as e:
             #Simply passing if we get an error here because it is of no consequence.  We will print a couple
             # of newlines instead
             print "\n\n"
-        mytable = bt_table.get_string(sortby='Number',reversesort=False)
+        table = table.get_string(sortby='Number',reversesort=False)
         print "============================== SUMMARY TABLE =============================="
-        return mytable
+        return table
 
     #===================================================================================================================
     # MAIN()
@@ -373,7 +378,6 @@ try:
         #Initialize and start the rotating progress meter
         pb = progress_bar_loading()
         pb.start()
-
         #Establish the endpoint we will use.  The 'get_endpoint' function automatically uses the REGION variable to get
         #the correct endpoint for that specific region
         global ENDPOINT
@@ -385,7 +389,6 @@ try:
         global RANDOM
         #Import and initialize COUNTER to control the number of loops.  COUNTER value is set to 0
         global COUNTER
-
         #Begin exicuting commands in repitition
         try:
             if RANDOM:
@@ -406,7 +409,8 @@ try:
                     COUNTER += 1
                 STOP = True
                 print "\r"
-        except Exception:
+        except Exception as e:
+            print "Error encountered in main() function\n%s" % e
             KILL = True
             STOP = True
 except KeyboardInterrupt:
@@ -432,32 +436,26 @@ if __name__ == "__main__":
         if len(BAD_TRANSACTIONS) > 0:
             bad_trans_table = make_table(BAD_TRANSACTIONS)
             print bad_trans_table
-
             print "\n"
-            #print "attempting collection data..."
-            Collection_data = collections.Counter(HTTP_CODE_COLLECTION)
-
-            # Collection_data = collections.Counter(MY_ROW_LIST)
-            # # for i in xrange(len(BAD_TRANSACTIONS)):
-            # #     for key,value in BAD_TRANSACTIONS[i].iteritems():
-            # #         Collection_data.append(value)
-            # # Collection_table = PrettyTable(Collection_data.keys())
-            # # Collection_table.align['container'] = 'l'
-            # # Collection_table.padding_width = 1
-            # # Collection_table.add_row(Collection_data)
-            # # print Collection_table
-            # for k,v in Collection_data.iteritems():
-            #     print "%s : %s" % (k,v)
-            print Collection_data
-            print ""
-            print ""
+            Collection_data = dict(collections.Counter(HTTP_CODE_COLLECTION))
+            print "____HTTP Response Codes____"
+            for key,value in Collection_data.iteritems():
+                print "%s's : %s response(s)" % (key,value)
+            print "\n"
             percentage = (int(len(BAD_TRANSACTIONS) * 100) / MAX_REPS)
             print "Number of calls exceeding MAX_TIME %d" % int(len(BAD_TRANSACTIONS))
             print "Percentage of calls that exceed MAX_TIME: %.2f" % percentage + '%'
+            print "Number of errors returned by cURL: %d" % int(len(SUBPROCESS_ERRORS))
+            if SUBPROCESS_ERRORS:
+                print "CURL ERRORS:"
+                for error in SUBPROCESS_ERRORS:
+                    print error
         else:
             print '\n\n'
-            print "All transactions successlly completed faster than the MAX_TIME setting"
-
+            s = 'seconds'
+            if MAX_TIME == 1:
+                s = 'second'
+            print "All transactions successlly completed in under %.1f %s" % (MAX_TIME,s)
 
             """TODO from here i need to create a pretty table using the collection data for response codes.  it works now 
             but just need to formulate the table headers and populate table.  I would like percentages added to reponse codes as well 
@@ -467,8 +465,14 @@ if __name__ == "__main__":
 
             In [15]: x[x.keys()[0]]
             Out[15]: 15
-            """
 
+            ERROR 
+            API call [27] sent...
+            Good Transaction!
+            Command 'time -p curl -s -I -H "X-Auth-Token: c6424d6c8fd845df8687d6de0bf6f36e" https://storage101.dfw1.clouddrive.com/v1/MossoCloudFS_adabd673-1859-48ba-8f91-951ff2331300/stream/Snowball.mp4' returned non-zero exit status 35
+            API call [29] sent...
+            Good Transaction!
+            """
 
     except KeyboardInterrupt or EOFError:
         print "\rShutting down..."
