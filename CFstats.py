@@ -77,7 +77,7 @@ class program_loading(threading.Thread):
             sys.stdout.flush()
             try:
                 i = 1
-                while STARTUP == True:
+                while STARTUP == True:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
                     symbol = '+'
                     sys.stdout.write('\rLoading application %s' % (symbol * i),)
                     sys.stdout.flush()
@@ -431,11 +431,12 @@ if __name__ == "__main__":
                     resp = 'response'
                 print "%s's : %s %s" % (key,value,resp)
             print "\n"
-            print "Total number of API calls: %d" % (COUNTER - 1)
-            print "Number of API calls exceeding MAX_TIME: %d" % int(len(BAD_TRANSACTIONS))
-            percentage = (int(len(BAD_TRANSACTIONS) * 100) / MAX_REPS)
+            net_reps = ((COUNTER -1) - len(SUBPROCESS_ERRORS)) 
+            print "Total number of successful API calls: %d" % net_reps
+            print "Number of API calls exceeding MAX_TIME: %d" % len(BAD_TRANSACTIONS)
+            percentage = (len(BAD_TRANSACTIONS) * 100 / net_reps)
             print "Percentage of API calls that exceed MAX_TIME: %.2f" % percentage + '%'
-            print "Number of errors returned by cURL: %d" % int(len(SUBPROCESS_ERRORS))
+            print "Number of errors returned by cURL: %d" % len(SUBPROCESS_ERRORS)
             print '\n'
             if SUBPROCESS_ERRORS:
                 print "CURL ERRORS:"
@@ -448,16 +449,8 @@ if __name__ == "__main__":
                 s = 'second'
             print "All transactions successlly completed in under %.1f %s" % (MAX_TIME,s)
 
-            """TODO from here i need to create a pretty table using the collection data for response codes.  it works now 
-            but just need to formulate the table headers and populate table.  I would like percentages added to reponse codes as well 
-            also need to add 'total api calls', 'total errors', and 'percentage failure'
-
-            ERROR 
-            API call [27] sent...
-            Good Transaction!
-            Command 'time -p curl -s -I -H "X-Auth-Token: c6424d6c8fd845df8687d6de0bf6f36e" https://storage101.dfw1.clouddrive.com/v1/MossoCloudFS_adabd673-1859-48ba-8f91-951ff2331300/stream/Snowball.mp4' returned non-zero exit status 35
-            API call [29] sent...
-            Good Transaction!
+            """TODO i need to make adjustments to the percentage of bad calls.  I need to take into 
+            account all the calls that failed outright because of curl which alters the percentage.
             """
 
     except KeyboardInterrupt or EOFError:
