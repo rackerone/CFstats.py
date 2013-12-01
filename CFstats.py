@@ -245,6 +245,16 @@ try:
             rand.append({random_container:rand_object})
             return rand[0]
 
+    def truncate(string):
+        """ When printing the summary table we have to limit the length of container and object names to prevent the table
+        from 'wrapping' preventing readibility """
+        if len(string) > 50:
+            string = ("truncated ... " + string[-40:])
+            # start = (len(string) - 30)
+            # string = ("..." + string[-int(start):])
+        return string
+
+
     def timed_curl_head(token=TOKEN, endpoint=ENDPOINT, container=CONTAINER, file=FILE, use_snet=SNET, region=REGION):
         """Curl an object and return header.  This call will be timed and if the call exceeds the MAX_TIME value
         it will log the transaction.  We consider anything taking longer than the MAX_TIME to be a BAD_TRANSACTION"""
@@ -341,6 +351,8 @@ try:
         for i in xrange(len(list_of_dicts)):
             MY_ROW = []
             for key,value in list_of_dicts[i].iteritems():
+                if key == "Object Name":
+                    value = truncate(value)
                 MY_ROW.append(value)
                 MY_ROW_LIST.append(value)
             table.add_row(MY_ROW)
@@ -359,18 +371,7 @@ try:
     # MAIN()
     #===================================================================================================================
     def main():
-        try:
-            os.system('cls' if os.name=='nt' else 'clear')
-        except Exception as e:
-            pass
-        #print random_object()
-        #Initialize and start the rotating progress meter
-        pb = progress_bar_loading()
-        pb.start()
-        #Establish the endpoint we will use.  The 'get_endpoint' function automatically uses the REGION variable to get
-        #the correct endpoint for that specific region
-        global ENDPOINT
-        ENDPOINT = get_endpoint()
+        """Run this main function in '__main__' section"""
         #Import and initialize the TOKEN, CONTAINER, RANDOM, and FILE variables
         global CONTAINER
         global TOKEN
@@ -378,15 +379,24 @@ try:
         global RANDOM
         #Import and initialize COUNTER to control the number of loops.  COUNTER value is set to 0
         global COUNTER
+        #Establish the endpoint we will use.  The 'get_endpoint' function automatically uses the REGION variable to get
+        #the correct endpoint for that specific region
+        global ENDPOINT
+        ENDPOINT = get_endpoint()
+        try:
+            os.system('cls' if os.name=='nt' else 'clear')
+        except Exception as e:
+            pass
+        #Initialize and start the rotating progress meter
+        pb = progress_bar_loading()
+        pb.start()
         #Begin exicuting commands in repitition
         try:
             if RANDOM:
                 while COUNTER <= MAX_REPS:
-                    #for key,value in rand_obj_dict.iteritems():
                     rand_obj_dict = random_object()
                     CONTAINER = rand_obj_dict.keys()[0]
-                    FILE = rand_obj_dict.values()[0]
-                    #print "\r%s:%s" % (CONTAINER,FILE)
+                    FILE = rand_obj_dict.values()[0]                    
                     timed_curl_head(TOKEN, ENDPOINT, CONTAINER, FILE)
                     COUNTER += 1
             else:
@@ -429,19 +439,20 @@ if __name__ == "__main__":
                 resp = 'responses'
                 if value == '1':
                     resp = 'response'
-                print "%s's : %s %s" % (key,value,resp)
+                print ">>> %s's : %s %s" % (key,value,resp)
             print "\n"
+            print "____STATS FOR THIS RUN____"
             net_reps = ((COUNTER -1) - len(SUBPROCESS_ERRORS)) 
-            print "Total number of successful API calls: %d" % net_reps
-            print "Number of API calls exceeding MAX_TIME: %d" % len(BAD_TRANSACTIONS)
+            print ">>> Total number of successful API calls: %d" % net_reps
+            print ">>> Number of API calls exceeding MAX_TIME: %d" % len(BAD_TRANSACTIONS)
             percentage = (len(BAD_TRANSACTIONS) * 100 / net_reps)
-            print "Percentage of API calls that exceed MAX_TIME: %.2f" % percentage + '%'
-            print "Number of errors returned by cURL: %d" % len(SUBPROCESS_ERRORS)
+            print ">>> Percentage of API calls that exceed MAX_TIME: %.2f" % percentage + '%'
+            print ">>> Number of errors returned by cURL: %d" % len(SUBPROCESS_ERRORS)
             print '\n'
             if SUBPROCESS_ERRORS:
-                print "CURL ERRORS:"
+                print "____CURL ERRORS____"
                 for error in SUBPROCESS_ERRORS:
-                    print error
+                    print ">>> %s" % error
         else:
             print '\n\n'
             s = 'seconds'
@@ -449,8 +460,9 @@ if __name__ == "__main__":
                 s = 'second'
             print "All transactions successlly completed in under %.1f %s" % (MAX_TIME,s)
 
-            """TODO i need to make adjustments to the percentage of bad calls.  I need to take into 
-            account all the calls that failed outright because of curl which alters the percentage.
+            """
+            Need to fix table formatting.  If object names are too long it causes a word-wrap that makes it difficult to
+            read in a terminal windows.
             """
 
     except KeyboardInterrupt or EOFError:
