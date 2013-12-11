@@ -61,7 +61,7 @@ CDN = False
 #Set RANDOM to True if you want 10 randomly selected objects for testing.
 #If RANDOM is set to 'True' then you can safely disregard the CONTAINER and
 #FILE variables.
-RANDOM = True
+RANDOM = False
 
 #If RANDOM is set to 'False', you **MUST** set the FILE and CONTAINER variables.
 #If RANDOM is 'True', you can disregard
