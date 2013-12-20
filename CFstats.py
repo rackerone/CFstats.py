@@ -509,10 +509,8 @@ try:
         global FILE
         global RANDOM
         global MY_OBJECT
-        #global MY_OBJECT
-        global CDN
         #Import and initialize COUNTER to control the number of loops.  COUNTER
-        #value is set to 0
+        #value is set to 1
         global COUNTER
         #Establish the endpoint we will use.  The 'get_endpoint' function
         #automatically uses the REGION variable to get the correct endpoint for
@@ -531,7 +529,6 @@ try:
         pb = progress_bar_loading()
         pb.start()
         #Begin executing commands in repitition
-        print MY_OBJECT
         try:
             if RANDOM:
                 while COUNTER <= MAX_REPS:
@@ -558,8 +555,11 @@ try:
             print "Error encountered in main() function\n%s" % e
             KILL = True
             STOP = True
-except KeyboardInterrupt:
+            STARTUP = False
+except KeyboardInterrupt, Exception:
     #Killing progress meters
+    print "ABORTING!"
+    print "Killing progress meters"
     STARTUP = False
     KILL = True
     STOP = True
@@ -623,8 +623,19 @@ if __name__ == "__main__":
             "Use exit() or Ctrl-D (i.e. EOF) to exit"
             This error will add the following to the SUBPROCESS_ERRORS list
             "returned non-zero exit status 35"
+                A problem occurred somewhere in the SSL/TLS handshake.
+                You really want the error buffer and read the message
+                there as it pinpoints the problem slightly more. Could
+                be certificates (file formats, paths, permissions),
+                passwords, and others.
             AND
             "returned non-zero exit status 2"
+                Very early initialization code failed. This is likely to be
+                an internal error or problem, or a resource problem where
+                something fundamental couldn't get done at init time.
+            AND
+            "returned non-zero exit status 56"
+                Failure with receiving network data.
 
             This next sync with git will contain:
             updated code to be more efficient
