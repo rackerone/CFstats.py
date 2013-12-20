@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #Copyright 2013 Aaron Smith
 #Thanks to Bruce Stringer basic idea here.  I based this script on a small script he wrote to just check API calls
