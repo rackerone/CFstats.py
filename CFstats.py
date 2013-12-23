@@ -26,14 +26,14 @@ import threading
 import random
 import json
 import collections
+import logging
 from prettytable import PrettyTable
 try:
     import pyrax
 except ImportError as e:
     print '%s\n' % e
-    print "Please install pyrax and try again!"
+    print "Please install pyrax with pip and try again!"
     sys.exit(1)
-
 #==============================================================================
 # EDIT THE GLOBAL VARIABLES BELOW AS NECESSARY FOR EACH TEST
 #==============================================================================
