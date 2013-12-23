@@ -110,10 +110,6 @@ try:
     #Starting program load meter
     pl = program_loading()
     pl.start()
-    #Set up variables that will STOP or KILL the progress_bar_loading() meter that
-    #we will create later
-    KILL = False
-    STOP = False
     #We will use this to parse all available cloud files endpoints for this
     #particular user
     IDENTITY_ENDPOINT = 'https://identity.api.rackspacecloud.com/v2.0/tokens'
@@ -206,7 +202,7 @@ try:
     #This will provide screen output IN ADDITION TO the logging to file.
     console = logging.StreamHandler()
     #Set console handler logging level to DEBUG for console output
-    console.setLevel(logging.WARNING)
+    console.setLevel(logging.CRITICAL)
     #Set a format for the console output
     formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
     #Tell the console handler to use the 'formatter'
@@ -218,6 +214,7 @@ try:
     #logging.info('This is my root logger - info.')
     #Create a name for a logger.  If we omitted this then the %(name) variable would be 'root', hence 'root' logger.
     cflogger = logging.getLogger('CFStats')
+    cflogger.addHandler(console)
     #adapter = CustomAdapter(logger, {'connid': COUNTER})
     #Begin logging to console and file
     cflogger.info("**** Starting CFStats ****")
@@ -227,6 +224,10 @@ try:
     #==========================================================================
     #SET UP CLASSES AND FUNCTIONS
     #==========================================================================
+    #Set up variables that will STOP or KILL the progress_bar_loading() meter that
+    #we will create later
+    KILL = False
+    STOP = False
     class progress_bar_loading(threading.Thread):
         """
         This will provide a spinning progress meter.  Set 'STOP' or 'KILL' to
@@ -412,7 +413,7 @@ try:
             msg = "\rBAD TRANSACTION ID: %s\tHTTP RESPONSE CODE: %s\t\tTIME: %s" % (trans,response_code,time)
             print msg
             bad_log_message = "[%d] %s", (COUNTER, command)
-            cflogger.info(command)
+            cflogger.warning(command)
             BAD_TRANSACTIONS.append({
                     'Container':container,
                     'Time Stamp':tstamp,
@@ -558,7 +559,7 @@ try:
             STARTUP = False
 except KeyboardInterrupt, Exception:
     #Killing progress meters
-    print "ABORTING!"
+    print "\rABORTING!"
     print "Killing progress meters"
     STARTUP = False
     KILL = True
