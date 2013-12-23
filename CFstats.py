@@ -73,6 +73,10 @@ FILE = 'file_object_name'
 #DO NOT EDIT BELOW THIS LINE             DO NOT EDIT BELOW THIS LINE
 #=================================================########=====================
 #=================================================########=====================
+#Set the maximum number of containers to include IF the 'RANDOM' variable is set
+#to 'True'.  This 'max value' will prevent a very large account, with a large
+#number of containers, from hanging while creating a list of cdn-enabled conts.
+RANDOM_CONTAINER_COUNT = 20
 #Initialize the STARTUP variable to the value of TRUE.  Set to false to stop
 #the 'program_loading()' meter below.
 STARTUP = True
@@ -146,7 +150,7 @@ try:
     ENDPOINT = ''
 
     #==========================================================================
-    #SET UP PYRAX ENVIRONMENT
+    #SET UP CLOUD FILES ENVIRONMENT
     #==========================================================================
     ticks = 0
     max_ticks = 3
@@ -168,6 +172,7 @@ try:
             ticks += 1
         finally:
             loop = False
+            ticks = 0
     #Rackspace service catalog
     CATALOG = pyrax.identity.services
     #Get customer account number
@@ -177,11 +182,15 @@ try:
         cfiles = pyrax.connect_to_cloudfiles(REGION)
         #Get a list of container Objects
         CONTAINER_OBJS = cfiles.get_all_containers()
-        #Get list CDN enabled containers
+        #Get list CDN enabled containers.  This can be a slow operation if there are
+        #a lot of containers because we have to check container attributes for each one.
+        #We are going to get the first 10 containers we find and use those for a sample
+        #bed of containers.  This will prevent the script from hanging right here.
         CDN_CONTAINER_OBJS = []
         for cont in CONTAINER_OBJS:
-            if cont.cdn_enabled:
-                CDN_CONTAINER_OBJS.append(cont)
+            if len(CDN_CONTAINER_OBJS) <= RANDOM_CONTAINER_COUNT:
+                if cont.cdn_enabled:
+                    CDN_CONTAINER_OBJS.append(cont)
     except Exception as e:
         print e, '\nError during pyrax setup'
 
